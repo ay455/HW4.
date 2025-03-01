@@ -1,0 +1,201 @@
+---
+title: "Homework 4"
+author: Aydan Yildiz 
+output: html_document
+date: "2025-03-01"
+---
+
+#installing the packages
+
+```{r}
+library(forecast)
+library(TTR)
+library(ggplot2)
+library(readxl)
+
+```
+
+#Loading the dataset
+
+```{r}
+average_monthly_surface_temperature <- read_excel("average-monthly-surface-temperature.xlsx")
+
+
+```
+
+#check which columns need to be renamed
+
+```{r}
+colnames(average_monthly_surface_temperature)
+```
+```{r}
+colnames(average_monthly_surface_temperature)[5] <- "AverageTemperatureAM"
+colnames(average_monthly_surface_temperature)[6] <- "AverageTemperaturePM"
+```
+
+#convert into time series
+
+```{r}
+temperature_ts_AM<-ts(average_monthly_surface_temperature$`AverageTemperatureAM`, start=c(average_monthly_surface_temperature$year[1],1), frequency = 12)
+
+temperature_ts_PM <- ts(average_monthly_surface_temperature$AverageTemperaturePM, 
+                        start = c(average_monthly_surface_temperature$year[1], 1), 
+                        frequency = 12)
+```
+
+#Analysis
+
+```{r}
+plot(temperature_ts_AM, main="Average Monthly Surface Temperature (AM)", ylab="Temperature", xlab="Year", col="blue", lwd=2)
+
+plot(temperature_ts_PM, main="Average Monthly Surface Temperature (PM)", ylab="Temperature", xlab="year", col="red", lwd=2)
+
+Acf(temperature_ts_AM, main="Autocorrelation Function (AM)")
+Acf(temperature_ts_PM, main="Autocorrelation Function (PM)")
+
+stl_decomp_AM <- stl(temperature_ts_AM, s.window="periodic")
+plot(stl_decomp_AM, main="STL Decomposition of AM Temperature Data")
+
+stl_decomp_PM <- stl(temperature_ts_PM, s.window="periodic")
+plot(stl_decomp_PM, main="STL Decomposition of PM Temperature Data")
+
+```
+
+#Forecasting models
+
+```{r}
+naive_forecast_AM <- naive(temperature_ts_AM, h=12)
+naive_forecast_PM <- naive(temperature_ts_PM, h=12)
+
+snaive_forecast_AM <- snaive(temperature_ts_AM, h=12)
+snaive_forecast_PM <- snaive(temperature_ts_PM, h=12)
+
+hw_forecast_AM <- HoltWinters(temperature_ts_AM)
+hw_forecast_PM <- HoltWinters(temperature_ts_PM)
+
+hw_forecast_future_AM <- forecast(hw_forecast_AM, h=12)
+hw_forecast_future_PM <- forecast(hw_forecast_PM, h=12)
+
+ets_model_AM <- ets(temperature_ts_AM)
+ets_forecast_AM <- forecast(ets_model_AM, h=12)
+
+ets_model_PM <- ets(temperature_ts_PM)
+ets_forecast_PM <- forecast(ets_model_PM, h=12)
+
+stl_forecast_AM <- forecast(stl_decomp_AM, h=12)
+stl_forecast_PM <- forecast(stl_decomp_PM, h=12)
+
+```
+
+#undestand the output
+
+```{r}
+print("Naive Forecast (AM):")
+print(summary(naive_forecast_AM))
+
+print("Naive Forecast (PM):")
+print(summary(naive_forecast_PM))
+
+print("Seasonal Naive Forecast (AM):")
+print(summary(snaive_forecast_AM))
+
+print("Seasonal Naive Forecast (PM):")
+print(summary(snaive_forecast_PM))
+
+print("Holt-Winters Model (AM):")
+print(hw_forecast_AM)
+
+print("Holt-Winters Model (PM):")
+print(hw_forecast_PM)
+
+print("ETS Model (AM):")
+print(summary(ets_model_AM))
+
+print("ETS Model (PM):")
+print(summary(ets_model_PM))
+
+print("STL Forecast (AM):")
+print(summary(stl_forecast_AM))
+
+print("STL Forecast (PM):")
+print(summary(stl_forecast_PM))
+```
+
+#time series for the forecasts
+
+```{r}
+plot(temperature_ts_AM, main="Time Series Forecasting Comparison (AM)", ylab="Temperature", xlab="year", col="black", lwd=2, ylim=range(temperature_ts_AM, stl_forecast_AM$mean))
+
+lines(naive_forecast_AM$mean, col="red", lwd=2)
+lines(snaive_forecast_AM$mean, col="blue", lwd=2)
+lines(hw_forecast_future_AM$mean, col="green", lwd=2)
+lines(ets_forecast_AM$mean, col="purple", lwd=2)
+lines(stl_forecast_AM$mean, col="orange", lwd=2)
+
+legend("topleft", legend=c("Naive", "Seasonal Naive", "Holt-Winters", "ETS", "STL"),
+       col=c("red", "blue", "green", "purple", "orange"), lty=1, cex=0.8)
+
+plot(temperature_ts_PM, main="Time Series Forecasting Comparison (PM)", 
+     ylab="Temperature", xlab="Year", col="black", lwd=2, ylim=range(temperature_ts_PM, stl_forecast_PM$mean))
+
+lines(naive_forecast_PM$mean, col="red", lwd=2)
+lines(snaive_forecast_PM$mean, col="blue", lwd=2)
+lines(hw_forecast_future_PM$mean, col="green", lwd=2)
+lines(ets_forecast_PM$mean, col="purple", lwd=2)
+lines(stl_forecast_PM$mean, col="orange", lwd=2)
+
+legend("topleft", legend=c("Naive", "Seasonal Naive", "Holt-Winters", "ETS", "STL"),
+       col=c("red", "blue", "green", "purple", "orange"), lty=1, cex=0.8)
+```
+
+#Model accuracy comparison
+
+```{r}
+naive_acc_AM <- accuracy(naive_forecast_AM)
+snaive_acc_AM <- accuracy(snaive_forecast_AM)
+hw_acc_AM <- accuracy(hw_forecast_future_AM)
+ets_acc_AM <- accuracy(ets_forecast_AM)
+stl_acc_AM <- accuracy(stl_forecast_AM)
+
+naive_acc_PM <- accuracy(naive_forecast_PM)
+snaive_acc_PM <- accuracy(snaive_forecast_PM)
+hw_acc_PM <- accuracy(hw_forecast_future_PM)
+ets_acc_PM <- accuracy(ets_forecast_PM)
+stl_acc_PM <- accuracy(stl_forecast_PM)
+```
+
+#data frame for accuracy
+
+```{r}
+accuracy_df_AM <- data.frame(
+  Model = c("Naive", "Seasonal Naive", "Holt-Winters", "ETS", "STL"),
+  RMSE = c(naive_acc_AM[2], snaive_acc_AM[2], hw_acc_AM[2], ets_acc_AM[2], stl_acc_AM[2]),
+  MAE = c(naive_acc_AM[3], snaive_acc_AM[3], hw_acc_AM[3], ets_acc_AM[3], stl_acc_AM[3])
+)
+
+accuracy_df_PM <- data.frame(
+  Model = c("Naive", "Seasonal Naive", "Holt-Winters", "ETS", "STL"),
+  RMSE = c(naive_acc_PM[2], snaive_acc_PM[2], hw_acc_PM[2], ets_acc_PM[2], stl_acc_PM[2]),
+  MAE = c(naive_acc_PM[3], snaive_acc_PM[3], hw_acc_PM[3], ets_acc_PM[3], stl_acc_PM[3])
+)
+
+print("Model Accuracy Comparison (AM):")
+print(accuracy_df_AM)
+
+print("Model Accuracy Comparison (PM):")
+print(accuracy_df_PM)
+```
+
+#Identify the best model
+
+```{r}
+best_model_AM <- accuracy_df_AM[which.min(accuracy_df_AM$RMSE), ]
+best_model_PM <- accuracy_df_PM[which.min(accuracy_df_PM$RMSE), ]
+
+print("Best Model Based on Accuracy (AM):")
+print(best_model_AM)
+
+print("Best Model Based on Accuracy (PM):")
+print(best_model_PM)
+
+```
